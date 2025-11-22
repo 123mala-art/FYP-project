@@ -1,0 +1,37 @@
+.starry-background {
+  background: #0f172a;
+  overflow: hidden;
+  position: relative;
+}
+
+.starry-background::before,
+.starry-background::after {
+  content: "";
+  position: absolute;
+  top: -100%;
+  left: 0;
+  width: 200%;
+  height: 200%;
+  background: transparent;
+  background-image: radial-gradient(2px 2px at 20px 30px, white, transparent),
+    radial-gradient(1px 1px at 40px 70px, white, transparent),
+    radial-gradient(2px 2px at 50px 160px, white, transparent),
+    radial-gradient(2px 2px at 90px 40px, white, transparent),
+    radial-gradient(1px 1px at 130px 80px, white, transparent),
+    radial-gradient(2px 2px at 160px 120px, white, transparent);
+  background-size: 200px 200px;
+  animation: fall 20s linear infinite;
+}
+
+.starry-background::after {
+  animation-delay: 10s;
+}
+
+@keyframes fall {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(100%);
+  }
+}
