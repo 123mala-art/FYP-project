@@ -14,9 +14,6 @@ import shareRoutes from "./routes/share.js";
 
 dotenv.config();
 
-// Quick startup debug to ensure Node prints at process start
-console.log("DEBUG: server.js starting");
-
 const app = express();
 
 // -------------------------
@@ -102,7 +99,7 @@ app.get("/db/status", async (req, res) => {
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log("============================================================");
-  console.log("🚀 DevStudio Backend Server (MODULAR ARCHITECTURE)");
+  console.log("🚀 DevStudio Backend Server (MODULAR)");
   console.log("============================================================");
   console.log(`📍 Server: http://localhost:${PORT}`);
   console.log(`🗄️  MongoDB: ${MONGO_URI}`);

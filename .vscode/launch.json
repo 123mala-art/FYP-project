@@ -1,0 +1,33 @@
+{
+  // Launch both backend and frontend from VS Code (press F5 -> select "Run Full Dev")
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "pwa-node",
+      "request": "launch",
+      "name": "Start Backend (npm start)",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["start"],
+      "cwd": "${workspaceFolder}/backend",
+      "console": "integratedTerminal",
+      "env": {
+        "PORT": "5000"
+      }
+    },
+    {
+      "type": "pwa-node",
+      "request": "launch",
+      "name": "Start Frontend (npm start)",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["start"],
+      "cwd": "${workspaceFolder}/frontend",
+      "console": "integratedTerminal"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Run Full Dev",
+      "configurations": ["Start Backend (npm start)", "Start Frontend (npm start)"]
+    }
+  ]
+}
