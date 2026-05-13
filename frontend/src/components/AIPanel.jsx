@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
+import { Bot, User, Sparkles, X } from "lucide-react";
 
 const AIPanel = ({
   showAI,
@@ -8,113 +9,111 @@ const AIPanel = ({
   aiQuery,
   setAiQuery,
   handleAISubmit,
-  aiMode,
-  setAiMode,
   handleDeleteAIMessage,
+  darkMode = false
 }) => {
-  if (!showAI) return null;
+  const messagesEndRef = useRef(null);
+
+  // Auto-scroll to latest message
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [aiResponses, aiLoading]);
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
-      <div className="bg-gradient-to-br from-purple-900 to-slate-900 rounded-2xl shadow-2xl w-full max-w-md h-[600px] flex flex-col border border-purple-500">
-        <div className="bg-gradient-to-r from-purple-600 to-pink-500 text-white p-4 rounded-t-2xl flex justify-between items-center">
-          <h3 className="font-bold text-lg">🤖 AI Assistant (Powered by Groq)</h3>
-          <button
-            onClick={() => setShowAI(false)}
-            className="text-white hover:text-red-300 text-2xl"
-          >
-            ×
-          </button>
+    <div className={`fixed right-0 top-0 h-screen w-64 sm:w-72 lg:w-80 border-l shadow-2xl flex flex-col overflow-hidden transition-transform duration-300 z-50 ${showAI ? 'translate-x-0' : 'translate-x-full'} ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'} cursor-default`}>
+      {/* Professional VS Code style header */}
+      <div className={`px-4 py-3 flex items-center justify-between ${darkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-blue-500" />
+          <span className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>Assistant</span>
         </div>
+        <button
+          onClick={() => setShowAI(false)}
+          className={`rounded p-1 transition-colors ${darkMode ? 'text-gray-400 hover:text-gray-200 hover:bg-gray-700' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200'}`}
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
 
-        {/* Mode Toggle Buttons */}
-        <div className="flex gap-2 p-3 border-b border-purple-500">
-          <button
-            onClick={() => setAiMode("code")}
-            className={`flex-1 py-2 px-4 rounded-lg font-medium transition ${
-              aiMode === "code"
-                ? "bg-purple-600 text-white"
-                : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-            }`}
-          >
-            💻 Code Analysis
-          </button>
-          <button
-            onClick={() => setAiMode("chat")}
-            className={`flex-1 py-2 px-4 rounded-lg font-medium transition ${
-              aiMode === "chat"
-                ? "bg-pink-500 text-white"
-                : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-            }`}
-          >
-            💬 Simple Chat
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {aiResponses.length === 0 ? (
-            <div className="text-center mt-10">
-              <p className="text-gray-400 mb-4">🤖 AI Assistant (Powered by Groq)</p>
-              {aiMode === "code" ? (
-                <>
-                  <p className="text-sm text-gray-500 mb-2">💻 Code Analysis Mode</p>
-                  <p className="text-xs text-gray-600">Ask questions about your code - it will be automatically analyzed</p>
-                </>
-              ) : (
-                <>
-                  <p className="text-sm text-gray-500 mb-2">💬 Simple Chat Mode</p>
-                  <p className="text-xs text-gray-600">Ask any question or have a general conversation</p>
-                </>
-              )}
+      {/* Messages Area - VS Code style */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 cursor-default">
+        {aiResponses.length === 0 ? (
+          <div className="text-center mt-8 px-4">
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-4 ${darkMode ? 'bg-blue-900' : 'bg-blue-50'}`}>
+              <Bot className={`w-6 h-6 ${darkMode ? 'text-blue-300' : 'text-blue-600'}`} />
             </div>
-          ) : (
-            aiResponses.map((msg, i) => (
-              <div key={i} className="space-y-2 group">
-                <div className="bg-purple-600 bg-opacity-30 text-purple-100 p-3 rounded-lg flex justify-between items-start gap-2">
-                  <div className="flex-1">
-                    <strong>You:</strong> {msg.q}
-                  </div>
-                  <button
-                    onClick={() => handleDeleteAIMessage(i)}
-                    className="text-red-400 hover:text-red-300 opacity-0 group-hover:opacity-100 transition font-bold text-lg flex-shrink-0"
-                    title="Delete message"
-                  >
-                    ×
-                  </button>
+            <h4 className={`mb-2 font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>Assistant</h4>
+            <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Ask any question about your code</p>
+          </div>
+        ) : (
+          aiResponses.map((msg, i) => (
+            <div key={i} className="space-y-3">
+              {/* User Message */}
+              <div className="flex gap-3 min-w-0">
+                <div className="w-6 h-6 bg-gray-400 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <User className="w-3 h-3 text-white" />
                 </div>
-                <div className="bg-gray-700 bg-opacity-50 text-gray-100 p-3 rounded-lg whitespace-pre-wrap">
-                  <strong>AI:</strong> {msg.a}
+                <div className="flex-1 min-w-0">
+                  <div className={`text-xs mb-1 font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>You</div>
+                  <div className={`rounded-lg px-3 py-2 text-sm break-words cursor-text ${darkMode ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-900'}`}>
+                    {msg.q}
+                  </div>
                 </div>
               </div>
-            ))
-          )}
-          {aiLoading && (
-            <div className="flex items-center gap-2 text-gray-400">
-              <div className="w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
-              AI is thinking...
-            </div>
-          )}
-        </div>
 
-        <div className="p-4 border-t border-purple-500">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={aiQuery}
-              onChange={(e) => setAiQuery(e.target.value)}
-              onKeyPress={(e) => e.key === "Enter" && !aiLoading && handleAISubmit()}
-              placeholder="Ask AI something..."
-              disabled={aiLoading}
-              className="flex-1 px-4 py-2 rounded-lg bg-gray-800 text-white border border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:opacity-50"
-            />
-            <button
-              onClick={handleAISubmit}
-              disabled={aiLoading || !aiQuery.trim()}
-              className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-2 rounded-lg hover:from-purple-600 hover:to-pink-600 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {aiLoading ? "..." : "Send"}
-            </button>
+              {/* AI Message */}
+              <div className="flex gap-3 min-w-0">
+                <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <Bot className="w-3 h-3 text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className={`text-xs mb-1 font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Assistant</div>
+                  <div className={`border rounded-lg px-3 py-2 text-sm whitespace-pre-wrap break-words cursor-text ${darkMode ? 'bg-blue-900 border-blue-700 text-white' : 'bg-blue-50 border-blue-100 text-gray-900'}`}>
+                    {msg.a}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+
+        {/* Loading State */}
+        {aiLoading && (
+          <div className="flex gap-3">
+            <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+              <Bot className="w-3 h-3 text-white" />
+            </div>
+            <div className="flex-1">
+              <div className={`text-xs mb-1 font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Assistant</div>
+              <div className={`border rounded-lg px-3 py-2 ${darkMode ? 'bg-blue-900 border-blue-700' : 'bg-blue-50 border-blue-100'}`}>
+                <div className="flex items-center gap-1">
+                  <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-bounce"></div>
+                  <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                  <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                </div>
+              </div>
+            </div>
           </div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Input Area - VS Code style */}
+      <div className={`border-t p-4 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+        <textarea
+          value={aiQuery}
+          onChange={(e) => setAiQuery(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && !aiLoading && handleAISubmit()}
+          placeholder="Ask your assistant anything..."
+          className={`w-full p-3 border rounded text-sm resize-none focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 ${darkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'border-gray-300 bg-white'}`}
+          rows="4"
+          disabled={aiLoading}
+        />
+
+        <div className={`mt-2 text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+          Press Enter to send, Shift+Enter for new line
         </div>
       </div>
     </div>

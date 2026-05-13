@@ -4,6 +4,7 @@ import Welcome from './pages/Welcome';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import App from './App';
+import SharePage from './pages/SharePage';
 
 const Main = () => {
   return (
@@ -19,6 +20,9 @@ const Main = () => {
         {/* Editor - Main App */}
         <Route path="/editor" element={<App />} />
         
+        {/* share URL that redirects into editor */}
+        <Route path="/share/:id" element={<SharePage />} />
+
         {/* Redirect any unknown routes to welcome */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

@@ -35,3 +35,8 @@
     transform: translateY(100%);
   }
 }
+
+/* Monaco editor line highlight for syntax errors */
+.errorLineHighlight {
+  background-color: rgba(220, 38, 38, 0.15) !important;
+}

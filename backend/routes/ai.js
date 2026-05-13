@@ -1,5 +1,5 @@
 import express from "express";
-import { queryGroqAPI, generateSmartFallback } from "../utils/groqAPI.js";
+import { queryOpenAIAPI } from "../utils/openaiAPI.js";
 
 const router = express.Router();
 
@@ -14,21 +14,28 @@ router.post("/", async (req, res) => {
 
     console.log("🤖 AI Query received:", query.substring(0, 100));
 
-    const apiKey = process.env.OPENAI_API_KEY;
+    const apiKeyRaw = process.env.GROQ_API_KEY;
+    const apiKey = apiKeyRaw?.trim();
 
     if (!apiKey) {
-      console.log("⚠️ Using fallback response (API key not configured)");
-      const fallback = generateSmartFallback(query);
-      return res.json({ answer: fallback });
+      console.error("⚠️ GROQ_API_KEY is missing or empty in backend environment.");
+      return res.status(500).json({
+        answer: "❌ Groq API key missing. Please add GROQ_API_KEY to backend/.env."
+      });
+    }
+
+    if (apiKeyRaw !== apiKey) {
+      console.warn("⚠️ GROQ_API_KEY has leading/trailing whitespace; trimming before use.");
     }
 
     try {
-      const answer = await queryGroqAPI(query, apiKey);
+      const answer = await queryOpenAIAPI(query, apiKey);
       return res.json({ answer });
-    } catch (groqError) {
-      console.error("⚠️ Groq API failed, using fallback:", groqError.message);
-      const fallback = generateSmartFallback(query);
-      return res.json({ answer: fallback });
+    } catch (openAIError) {
+      console.error("⚠️ OpenAI API failed:", openAIError.message);
+      return res.status(500).json({
+        answer: `❌ OpenAI error: ${openAIError.message}`
+      });
     }
 
   } catch (error) {

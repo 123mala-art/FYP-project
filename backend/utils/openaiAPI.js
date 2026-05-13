@@ -2,13 +2,13 @@ import fetch from "node-fetch";
 
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 const GROQ_MODELS = {
-  primary: "llama-3.3-70b-versatile",
-  fallback: "llama-3.1-8b-instant",
-  alternative: "mixtral-8x7b-32768"
+  primary: process.env.GROQ_MODEL_PRIMARY || "llama-3.3-70b-versatile",
+  fallback: process.env.GROQ_MODEL_FALLBACK || "groq/compound-mini"
 };
 
-export async function queryGroqAPI(query, apiKey) {
-  if (!apiKey) {
+export async function queryOpenAIAPI(query, apiKey) {
+  const trimmedApiKey = apiKey?.trim();
+  if (!trimmedApiKey) {
     throw new Error("GROQ_API_KEY not configured");
   }
 
@@ -23,7 +23,7 @@ export async function queryGroqAPI(query, apiKey) {
       const response = await fetch(GROQ_API_URL, {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${apiKey}`,
+          "Authorization": `Bearer ${trimmedApiKey}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
@@ -31,14 +31,14 @@ export async function queryGroqAPI(query, apiKey) {
           messages: [
             {
               role: "system",
-              content: "You are a helpful coding assistant specialized in Python, JavaScript, C++, HTML, and CSS. Provide clear, concise answers with code examples when relevant. Format code in markdown with proper syntax highlighting. Keep responses under 500 words."
+              content: "You are GitHub Copilot, an AI code assistant. Keep responses SHORT and DIRECT. For code questions: provide minimal code examples (2-5 lines max), brief explanations, or fixes. NO verbose comments or documentation. NO multiple examples unless asked. Be concise and practical. If user asks general question, respond in 1-2 sentences."
             },
             {
               role: "user",
               content: query
             }
           ],
-          temperature: 0.7,
+          temperature: 0.2,
           max_tokens: 1024,
           top_p: 1,
           stream: false
@@ -55,14 +55,19 @@ export async function queryGroqAPI(query, apiKey) {
       const errorData = await response.json().catch(() => ({}));
       console.error(`❌ Groq API Error (${modelToUse}):`, response.status, errorData);
 
-      if (response.status === 400 && errorData.error?.message?.includes("model")) {
+      const message = errorData.error?.message || "Unknown Groq API error";
+      const isModelAccessError = /model|access|not exist|unauthorized/i.test(message) || response.status === 403 || response.status === 404;
+
+      if (attemptCount === 0 && modelToUse !== GROQ_MODELS.fallback && isModelAccessError) {
         console.log("⚠️ Model not available, trying fallback...");
         modelToUse = GROQ_MODELS.fallback;
         attemptCount++;
         continue;
       }
 
-      break;
+      const errorMessage = `${message} (model: ${modelToUse})`;
+      throw new Error(errorMessage);
+
     } catch (fetchError) {
       console.error(`❌ Fetch error with ${modelToUse}:`, fetchError.message);
       attemptCount++;

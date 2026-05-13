@@ -1,14 +1,15 @@
 import React, { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 // Components
-import Header from "./components/Header";
 import Toolbar from "./components/Toolbar";
 import EditorPanel from "./components/EditorPanel";
 import OutputPanel from "./components/OutputPanel";
 import InputDialog from "./components/InputDialog";
 import AIPanel from "./components/AIPanel";
 import HistoryModal from "./components/HistoryModal";
+import ChatButton from "./components/ChatButton";
+import SettingsModal from "./components/SettingsModal";
 
 // Constants
 const DEFAULT_CODES = {
@@ -23,18 +24,53 @@ const App = () => {
   // ===== STATE MANAGEMENT =====
   const navigate = useNavigate();
   const [language, setLanguage] = useState("javascript");
+  const backendUrl = process.env.REACT_APP_BACKEND_URL || `${window.location.protocol}//${window.location.hostname}:5000`;
   const [codes, setCodes] = useState(DEFAULT_CODES);
   const [output, setOutput] = useState("");
+  const [syntaxErrors, setSyntaxErrors] = useState([]);
   const [darkMode, setDarkMode] = useState(true);
   const [isRunning, setIsRunning] = useState(false);
   const [dividerPosition, setDividerPosition] = useState(50);
 
+  // Enhanced Editor Settings
+  const [showMinimap, setShowMinimap] = useState(true);
+  const [wordWrap, setWordWrap] = useState(true);
+  const [fontSize, setFontSize] = useState(14);
+  const [tabSize, setTabSize] = useState(2);
+  const [insertSpaces, setInsertSpaces] = useState(true);
+
+  // Additional Settings
+  const [autoClearOutput, setAutoClearOutput] = useState(true);
+  const [showExecutionStats, setShowExecutionStats] = useState(true);
+  const [autoScrollOutput, setAutoScrollOutput] = useState(true);
+  const [autoSubmitInput, setAutoSubmitInput] = useState(true);
+  const [executionTimeout, setExecutionTimeout] = useState(30);
+
+  // Enhanced Output Panel Settings
+  const [executionTime, setExecutionTime] = useState(null);
+  const [memoryUsage, setMemoryUsage] = useState(null);
+  const [cpuUsage, setCpuUsage] = useState(null);
+
   // AI Chat State
   const [showAI, setShowAI] = useState(false);
   const [aiQuery, setAiQuery] = useState("");
+  const location = useLocation();
+
+  // load shared code if navigated with state
+  useEffect(() => {
+    if (location.state?.shared) {
+      const { language: lang, code } = location.state.shared;
+      setLanguage(lang);
+      setCodes((prev) => ({ ...prev, [lang]: code }));
+      setOutput("Shared code loaded!");
+
+      // clear state so reloading doesn't repeat
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [location.state, navigate]);
+
   const [aiResponses, setAiResponses] = useState([]);
   const [aiLoading, setAiLoading] = useState(false);
-  const [aiMode, setAiMode] = useState("code");  // "code" or "chat"
 
   // Input Dialog State
   const [showInputDialog, setShowInputDialog] = useState(false);
@@ -49,6 +85,9 @@ const App = () => {
   const containerRef = useRef(null);
   const isDragging = useRef(false);
   const inputRef = useRef(null);
+
+  // Settings Modal State
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   // User Data
   const user = JSON.parse(localStorage.getItem("devstudio_user") || "{}");
@@ -90,10 +129,10 @@ const App = () => {
     const userStr = localStorage.getItem("devstudio_user");
     const demoMode = localStorage.getItem("devstudio_demo") === "true";
     
-    console.log("🔐 Auth Status:");
-    console.log("   Token:", token ? "✅ Present" : "❌ Missing");
-    console.log("   User:", userStr ? "✅ Present" : "❌ Missing");
-    console.log("   Demo Mode:", demoMode ? "✅ Yes (Guest)" : "❌ No (Registered)");
+    console.log("Auth Status:");
+    console.log("   Token:", token ? "Present" : "Missing");
+    console.log("   User:", userStr ? "Present" : "Missing");
+    console.log("   Demo Mode:", demoMode ? "Yes (Guest)" : "No (Registered)");
     console.log("   isGuest:", isGuest);
     console.log("   user:", user);
   }, []);
@@ -117,6 +156,72 @@ const App = () => {
     localStorage.removeItem("devstudio_user");
     localStorage.removeItem("devstudio_demo");
     navigate("/");
+  };
+
+  // Enhanced Editor Handlers
+  const handleFormat = () => {
+    if (editorRef.current) {
+      editorRef.current.getAction('editor.action.formatDocument').run();
+    }
+  };
+
+  const handleFind = () => {
+    if (editorRef.current) {
+      editorRef.current.getAction('actions.find').run();
+    }
+  };
+
+  const handleReplace = () => {
+    if (editorRef.current) {
+      editorRef.current.getAction('editor.action.startFindReplaceAction').run();
+    }
+  };
+
+  const handleGoToLine = () => {
+    if (editorRef.current) {
+      editorRef.current.getAction('editor.action.gotoLine').run();
+    }
+  };
+
+  const handleToggleMinimap = (enabled) => {
+    setShowMinimap(enabled);
+  };
+
+  const handleToggleWordWrap = (enabled) => {
+    setWordWrap(enabled);
+  };
+
+  const handleFontSizeChange = (size) => {
+    setFontSize(size);
+  };
+
+  const handleTabSizeChange = (size) => {
+    setTabSize(size);
+  };
+
+  const handleInsertSpacesChange = (enabled) => {
+    setInsertSpaces(enabled);
+  };
+
+  // Additional Settings Handlers
+  const handleToggleAutoClearOutput = (enabled) => {
+    setAutoClearOutput(enabled);
+  };
+
+  const handleToggleExecutionStats = (enabled) => {
+    setShowExecutionStats(enabled);
+  };
+
+  const handleToggleAutoScrollOutput = (enabled) => {
+    setAutoScrollOutput(enabled);
+  };
+
+  const handleToggleAutoSubmitInput = (enabled) => {
+    setAutoSubmitInput(enabled);
+  };
+
+  const handleExecutionTimeoutChange = (timeout) => {
+    setExecutionTimeout(timeout);
   };
 
   // Detect input requirements in code
@@ -161,30 +266,33 @@ const App = () => {
   const executeCodeWithInputs = async (inputString) => {
     const code = codes[language];
     setIsRunning(true);
-    setOutput("⏳ Running your code...\n");
+    if (!autoClearOutput) {
+      setOutput("Running your code...\n");
+    }
 
     try {
-      const res = await fetch("http://localhost:5000/run", {
+      const res = await fetch(`${backendUrl}/run`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           language,
           code,
           input: inputString,
+          timeout: executionTimeout,
         }),
       });
 
       const data = await res.json();
 
       if (res.ok) {
-        setOutput(data.output || "✅ Executed successfully!");
+        setOutput(data.output || "Executed successfully!");
       } else {
-        setOutput(`❌ Error: ${data.output || data.error || "Execution failed"}`);
+        setOutput(`Error: ${data.output || data.error || "Execution failed"}`);
       }
     } catch (error) {
       console.error("Execution error:", error);
       setOutput(
-        `❌ Connection Error: ${error.message}\n\nMake sure backend is running on port 5000.`
+        `Connection Error: ${error.message}\n\nMake sure backend is running on port 5000.`
       );
     } finally {
       setIsRunning(false);
@@ -195,6 +303,11 @@ const App = () => {
   const handleRun = async () => {
     const code = codes[language];
     if (!code) return;
+
+    // Auto clear output if enabled
+    if (autoClearOutput) {
+      setOutput("");
+    }
 
     // HTML/CSS preview
     if (language === "html" || language === "css") {
@@ -209,7 +322,11 @@ const App = () => {
     // JavaScript runs in browser
     if (language === "javascript") {
       setIsRunning(true);
-      setOutput("⏳ Running JavaScript...\n");
+      if (!autoClearOutput) {
+        setOutput("Running JavaScript...\n");
+      } else {
+        setOutput("Running JavaScript...\n");
+      }
 
       try {
         let logs = [];
@@ -219,9 +336,9 @@ const App = () => {
         new Function(code)();
 
         console.log = originalLog;
-        setOutput(logs.join("\n") || "✅ Executed successfully!");
+        setOutput(logs.join("\n") || "Executed successfully!");
       } catch (err) {
-        setOutput(`❌ JavaScript Error:\n${err.message}`);
+        setOutput(`JavaScript Error:\n${err.message}`);
       } finally {
         setIsRunning(false);
       }
@@ -245,68 +362,20 @@ const App = () => {
   };
 
   // ===== TOOLBAR FUNCTIONS =====
-  const handleSave = async () => {
-    try {
-      const token = localStorage.getItem("devstudio_token");
-      
-      // If authenticated user, save to database
-      if (token && !isGuest) {
-        console.log("💾 Saving code to account...");
-        console.log("Token:", token ? "✅ Present" : "❌ Missing");
-        console.log("Language:", language);
-        console.log("Code length:", codes[language].length);
-        
-        const res = await fetch("http://localhost:5000/code/save", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            language,
-            code: codes[language]
-          })
-        });
-
-        console.log("📖 Save response status:", res.status);
-        const data = await res.json();
-        console.log("📖 Save response:", data);
-        
-        if (res.ok) {
-          setOutput("💾 Code saved to your account!");
-        } else {
-          setOutput(`❌ Failed to save: ${data.message}`);
-        }
-      } else {
-        // Guest users: save to local storage only
-        localStorage.setItem("savedCodes", JSON.stringify(codes));
-        setOutput("💾 Code saved locally! (Login to save to account)");
-      }
-    } catch (error) {
-      console.error("❌ Save error:", error);
-      setOutput("❌ Failed to save code: " + error.message);
-    }
-  };
-
   const handleLoad = () => {
     // Load from LOCAL STORAGE only (quick access for both guest and registered users)
     try {
       const saved = localStorage.getItem("savedCodes");
       if (saved) {
         setCodes(JSON.parse(saved));
-        setOutput("📂 Code loaded from local storage! (Recently saved codes)");
+        setOutput("Code loaded from local storage! (Recently saved codes)");
       } else {
-        setOutput("⚠️ No local codes saved yet!\n\nTip: Click 'Save' to save your current code to local storage for quick access.");
+        setOutput("No local saved codes found. Start typing to create a new file.");
       }
     } catch (error) {
-      console.error("❌ Load error:", error);
-      setOutput("❌ Failed to load code: " + error.message);
+      console.error("Load error:", error);
+      setOutput("Failed to load code: " + error.message);
     }
-  };
-
-  const handleClear = () => {
-    setCodes((prev) => ({ ...prev, [language]: "" }));
-    setOutput("🧹 Editor cleared!");
   };
 
   const handleDownload = () => {
@@ -323,9 +392,9 @@ const App = () => {
       link.href = URL.createObjectURL(blob);
       link.download = `code.${extMap[language]}`;
       link.click();
-      setOutput("⬇️ Code downloaded!");
+      setOutput("Code downloaded!");
     } catch (error) {
-      setOutput("❌ Failed to download: " + error.message);
+      setOutput("Failed to download: " + error.message);
     }
   };
 
@@ -336,34 +405,99 @@ const App = () => {
   const handleSelectCodeFromHistory = (item) => {
     setCodes((prev) => ({ ...prev, [item.language]: item.code }));
     setLanguage(item.language);
-    setOutput(`✅ Loaded ${item.language} code from ${new Date(item.savedAt).toLocaleDateString()}`);
+    setOutput(`Loaded ${item.language} code from ${new Date(item.savedAt).toLocaleDateString()}`);
+  };
+
+  // Enhanced Toolbar Handlers
+  const handleNewFile = () => {
+    setCodes((prev) => ({ ...prev, [language]: "" }));
+    setOutput("New file created!");
+  };
+
+  const handleOpenFile = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.js,.py,.cpp,.html,.css,.json,.txt';
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const content = e.target.result;
+          setCodes((prev) => ({ ...prev, [language]: content }));
+          setOutput(`File "${file.name}" loaded!`);
+        };
+        reader.readAsText(file);
+      }
+    };
+    input.click();
   };
 
   const handleShare = async () => {
-    const code = codes[language];
     try {
-      const res = await fetch("http://localhost:5000/share", {
+      if (!codes[language] || codes[language].trim() === "") {
+        setOutput("❌ Cannot share empty code!");
+        return;
+      }
+
+      setOutput("⏳ Sharing code...");
+
+      const res = await fetch(`${backendUrl}/share`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ language, code }),
+        body: JSON.stringify({ 
+          language: language, 
+          code: codes[language] 
+        }),
       });
+
       const data = await res.json();
-      if (data.shareId) {
-        navigator.clipboard.writeText(
-          `http://localhost:3000/share/${data.shareId}`
-        );
-        setOutput(
-          `🔗 Share link copied!\nLink: http://localhost:3000/share/${data.shareId}`
-        );
+      
+      if (data.success && data.shareId) {
+        // Generate frontend URL instead of using backend URL
+        const frontendUrl = `${window.location.protocol}//${window.location.hostname}:${window.location.port || 3000}`;
+        const shareLink = `${frontendUrl}/share/${data.shareId}`;
+        
+        // Copy to clipboard
+        try {
+          await navigator.clipboard.writeText(shareLink);
+          setOutput(`✅ Code shared! Link copied to clipboard:\n\n📎 ${shareLink}`);
+        } catch (clipboardError) {
+          console.error("Clipboard error:", clipboardError);
+          setOutput(`✅ Code shared! Link:\n\n📎 ${shareLink}\n\n(Copy the link manually)`);
+        }
+      } else if (data.error) {
+        setOutput(`❌ Failed to share: ${data.error}`);
       } else {
-        setOutput("⚠️ Failed to create share link.");
+        setOutput(`❌ Failed to share code. Try again.`);
       }
     } catch (error) {
-      setOutput("❌ Backend not responding: " + error.message);
+      console.error("Share error:", error);
+      setOutput(`❌ Share error: ${error.message}`);
     }
   };
 
-  // ===== AI FUNCTIONS =====
+  const handleSettings = () => {
+    // Open settings modal
+    setShowSettingsModal(true);
+  };
+
+
+  // Enhanced Output Panel Handlers
+  const handleStopExecution = () => {
+    // Stop execution (placeholder for now)
+    setOutput("Execution stopped by user");
+  };
+
+  const handleClearOutput = () => {
+    setOutput("");
+  };
+
+  const handleDownloadOutput = () => {
+    // Download functionality is handled in OutputPanel
+  };
+
+  // ===== Assistant Functions =====
   const handleAISubmit = async () => {
     if (!aiQuery.trim()) return;
 
@@ -372,14 +506,13 @@ const App = () => {
     try {
       let query = aiQuery;
       
-      // If in code mode, include the current code
-      if (aiMode === "code") {
-        const currentCode = codes[language];
+      // Auto-include current code context with the prompt
+      const currentCode = codes[language];
+      if (currentCode.trim()) {
         query = `[${language.toUpperCase()} Code]\n${currentCode}\n\n[Question]\n${aiQuery}`;
       }
-      // If in chat mode, just send the question as-is
       
-      const res = await fetch("http://localhost:5000/ai", {
+      const res = await fetch(`${backendUrl}/ai`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query }),
@@ -392,14 +525,14 @@ const App = () => {
       } else {
         setAiResponses((prev) => [
           ...prev,
-          { q: aiQuery, a: "❌ No response received" },
+          { q: aiQuery, a: "No response received" },
         ]);
       }
     } catch (error) {
-      console.error("AI request failed:", error);
+      console.error("Assistant request failed:", error);
       setAiResponses((prev) => [
         ...prev,
-        { q: aiQuery, a: `❌ Error: ${error.message}` },
+        { q: aiQuery, a: `Error: ${error.message}` },
       ]);
     } finally {
       setAiLoading(false);
@@ -412,57 +545,121 @@ const App = () => {
   };
 
   // ===== RENDER =====
-  const pageBg = darkMode ? "bg-gray-900 text-white" : "bg-gray-100 text-black";
+  const pageBg = darkMode ? "bg-slate-900 text-white" : "bg-slate-50 text-slate-900";
 
   return (
-    <div className={`min-h-screen ${pageBg} bg-gradient-to-br from-purple-900 via-gray-900 to-black`}>
-      <Header
-        user={user}
-        isGuest={isGuest}
-        language={language}
-        setLanguage={setLanguage}
-        setDarkMode={setDarkMode}
-        darkMode={darkMode}
-        setShowAI={setShowAI}
-        handleLogout={handleLogout}
-      />
-
-      <Toolbar
-        handleRun={handleRun}
-        handleSave={handleSave}
-        handleLoad={handleLoad}
-        handleClear={handleClear}
-        handleDownload={handleDownload}
-        handleShare={handleShare}
-        handleViewHistory={handleViewHistory}
-        isRunning={isRunning}
-        isAuthenticated={!isGuest && !!user.email}
-      />
-
-      {/* Editor + Output */}
-      <div
-        ref={containerRef}
-        className="flex px-3 gap-0"
-        style={{ height: "calc(100vh - 180px)" }}
-      >
-        <EditorPanel
-          language={language}
-          code={codes[language]}
-          onCodeChange={handleCodeChange}
-          onEditorMount={handleEditorMount}
+    <div className={`h-screen overflow-hidden ${pageBg} ${darkMode ? "bg-slate-900" : "bg-slate-50"}`}>
+      {/* Remove header for editor page */}
+      
+      {/* Main Layout */}
+      <div className="flex flex-row h-screen">
+        <Toolbar
+          handleRun={handleRun}
+          handleLoad={handleLoad}
+          handleDownload={handleDownload}
+          handleShare={handleShare}
+          handleViewHistory={handleViewHistory}
+          handleFormat={handleFormat}
+          handleFind={handleFind}
+          handleReplace={handleReplace}
+          handleGoToLine={handleGoToLine}
+          handleNewFile={handleNewFile}
+          handleOpenFile={handleOpenFile}
+          handleSettings={handleSettings}
+          isRunning={isRunning}
+          isAuthenticated={!isGuest && !!user.email}
           darkMode={darkMode}
-          dividerPosition={dividerPosition}
+          user={user}
+          isGuest={isGuest}
+          handleLogout={handleLogout}
+          setDarkMode={setDarkMode}
+          forceCollapse={showAI}
         />
 
-        <OutputPanel
-          language={language}
-          output={output}
-          dividerPosition={dividerPosition}
-          startDragging={startDragging}
+        {/* Editor + Output Container */}
+        <div
+          ref={containerRef}
+          className={`flex flex-1 px-0 gap-0 transition-all duration-300 flex-row h-full overflow-hidden ${showAI ? 'lg:mr-80' : ''}`}
+        >
+          <EditorPanel
+            language={language}
+            code={codes[language]}
+            onCodeChange={handleCodeChange}
+            onEditorMount={handleEditorMount}
+            onErrorsChange={setSyntaxErrors}
+            darkMode={darkMode}
+            dividerPosition={dividerPosition}
+            onRun={handleRun}
+            isRunning={isRunning}
+            setLanguage={setLanguage}
+            verticalLayout={false}
+            onFormat={handleFormat}
+            onFind={handleFind}
+            onReplace={handleReplace}
+            onGoToLine={handleGoToLine}
+            onDownload={handleDownload}
+            onToggleMinimap={handleToggleMinimap}
+            onToggleWordWrap={handleToggleWordWrap}
+            showMinimap={showMinimap}
+            wordWrap={wordWrap}
+            fontSize={fontSize}
+            onFontSizeChange={handleFontSizeChange}
+            tabSize={tabSize}
+            onTabSizeChange={handleTabSizeChange}
+            insertSpaces={insertSpaces}
+            onInsertSpacesChange={handleInsertSpacesChange}
+          />
+
+          <OutputPanel
+            language={language}
+            output={output}
+            errors={syntaxErrors}
+            dividerPosition={dividerPosition}
+            startDragging={startDragging}
+            darkMode={darkMode}
+            verticalLayout={false}
+            isRunning={isRunning}
+            onStopExecution={handleStopExecution}
+            onClearOutput={handleClearOutput}
+            onDownloadOutput={handleDownloadOutput}
+            onSelectOutput={setOutput}
+            executionTime={executionTime}
+            memoryUsage={memoryUsage}
+            cpuUsage={cpuUsage}
+            showExecutionStats={showExecutionStats}
+            autoScrollOutput={autoScrollOutput}
+          />
+        </div>
+
+        {/* AI Panel - Professional VS Code style right sidebar */}
+        <AIPanel
+          showAI={showAI}
+          setShowAI={setShowAI}
+          aiResponses={aiResponses}
+          aiLoading={aiLoading}
+          aiQuery={aiQuery}
+          setAiQuery={setAiQuery}
+          handleAISubmit={handleAISubmit}
+          handleDeleteAIMessage={handleDeleteAIMessage}
+          darkMode={darkMode}
         />
       </div>
 
-      {/* Modals */}
+      {showAI ? null : (
+        <ChatButton
+          onClick={() => setShowAI(!showAI)}
+          darkMode={darkMode}
+        />
+      )}
+
+      <HistoryModal
+        isOpen={showHistoryModal}
+        onClose={() => setShowHistoryModal(false)}
+        onSelectCode={handleSelectCodeFromHistory}
+        isAuthenticated={!isGuest && !!user.email}
+        darkMode={darkMode}
+      />
+
       <InputDialog
         showInputDialog={showInputDialog}
         currentInputIndex={currentInputIndex}
@@ -474,26 +671,34 @@ const App = () => {
         setShowInputDialog={setShowInputDialog}
         setOutput={setOutput}
         inputRef={inputRef}
+        darkMode={darkMode}
+        autoSubmitInput={autoSubmitInput}
       />
 
-      <AIPanel
-        showAI={showAI}
-        setShowAI={setShowAI}
-        aiResponses={aiResponses}
-        aiLoading={aiLoading}
-        aiQuery={aiQuery}
-        setAiQuery={setAiQuery}
-        handleAISubmit={handleAISubmit}
-        aiMode={aiMode}
-        setAiMode={setAiMode}
-        handleDeleteAIMessage={handleDeleteAIMessage}
-      />
-
-      <HistoryModal
-        isOpen={showHistoryModal}
-        onClose={() => setShowHistoryModal(false)}
-        onSelectCode={handleSelectCodeFromHistory}
-        isAuthenticated={!isGuest && !!user.email}
+      <SettingsModal
+        isOpen={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+        darkMode={darkMode}
+        fontSize={fontSize}
+        onFontSizeChange={handleFontSizeChange}
+        tabSize={tabSize}
+        onTabSizeChange={handleTabSizeChange}
+        insertSpaces={insertSpaces}
+        onInsertSpacesChange={handleInsertSpacesChange}
+        showMinimap={showMinimap}
+        onToggleMinimap={handleToggleMinimap}
+        wordWrap={wordWrap}
+        onToggleWordWrap={handleToggleWordWrap}
+        autoClearOutput={autoClearOutput}
+        onToggleAutoClearOutput={handleToggleAutoClearOutput}
+        showExecutionStats={showExecutionStats}
+        onToggleExecutionStats={handleToggleExecutionStats}
+        autoScrollOutput={autoScrollOutput}
+        onToggleAutoScrollOutput={handleToggleAutoScrollOutput}
+        autoSubmitInput={autoSubmitInput}
+        onToggleAutoSubmitInput={handleToggleAutoSubmitInput}
+        executionTimeout={executionTimeout}
+        onExecutionTimeoutChange={handleExecutionTimeoutChange}
       />
     </div>
   );

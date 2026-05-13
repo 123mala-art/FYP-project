@@ -4,6 +4,16 @@ import bodyParser from "body-parser";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
 import cookieParser from "cookie-parser";
+import os from "os";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const envPath = path.resolve(__dirname, ".env");
+dotenv.config({ path: envPath });
+console.log("DEBUG: Loaded backend .env from", envPath);
 
 // Import modular routes
 import authRoutes from "./routes/auth.js";
@@ -24,7 +34,7 @@ const app = express();
 // -------------------------
 app.use(
   cors({
-    origin: ["http://localhost:3000", "http://localhost:3001"],
+    origin: true, // reflect requesting origin (allows mobile/network access)
     credentials: true,
   })
 );
@@ -80,6 +90,12 @@ app.get("/health", async (req, res) => {
   });
 });
 
+
+app.get("/netinfo", (req, res) => {
+  const ip = getLanIp();
+  res.json({ ip });
+});
+
 app.get("/db/status", async (req, res) => {
   try {
     const userCount = await User.countDocuments();
@@ -100,11 +116,27 @@ app.get("/db/status", async (req, res) => {
 // START SERVER
 // -------------------------
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+// compute LAN ip for logging
+function getLanIp() {
+  const nets = os.networkInterfaces();
+  for (const name of Object.keys(nets)) {
+    for (const net of nets[name]) {
+      if (net.family === 'IPv4' && !net.internal) {
+        return net.address;
+      }
+    }
+  }
+  return null;
+}
+
+const HOST = process.env.HOST || '0.0.0.0';
+app.listen(PORT, HOST, () => {
   console.log("============================================================");
   console.log("🚀 DevStudio Backend Server (MODULAR ARCHITECTURE)");
   console.log("============================================================");
-  console.log(`📍 Server: http://localhost:${PORT}`);
+  console.log(`📍 Server listening on: http://${HOST}:${PORT}`);
+  const lan = getLanIp();
+  if (lan) console.log(`📡 LAN IP: http://${lan}:${PORT}`);
   console.log(`🗄️  MongoDB: ${MONGO_URI}`);
   console.log("============================================================");
 });

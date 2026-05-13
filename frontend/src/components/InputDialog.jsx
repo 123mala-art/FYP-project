@@ -12,24 +12,26 @@ const InputDialog = ({
   setShowInputDialog,
   setOutput,
   inputRef,
+  darkMode = false,
+  autoSubmitInput = true
 }) => {
   if (!showInputDialog) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4">
-      <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl shadow-2xl w-full max-w-md border border-purple-500">
-        <div className="bg-gradient-to-r from-purple-600 to-pink-500 p-4 rounded-t-xl flex items-center gap-3">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className={`rounded-xl shadow-2xl w-full max-w-md border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+        <div className="bg-blue-600 p-4 rounded-t-xl flex items-center gap-3">
           <TerminalIcon className="w-6 h-6 text-white" />
           <div>
             <h3 className="font-bold text-lg text-white">Program Input Required</h3>
-            <p className="text-sm text-purple-100">
+            <p className="text-sm text-blue-100">
               Input {currentInputIndex + 1} of {inputPrompt.length}
             </p>
           </div>
         </div>
 
         <div className="p-6">
-          <label className="block text-white font-medium mb-2">
+          <label className={`block font-medium mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
             {inputPrompt[currentInputIndex]}
           </label>
 
@@ -38,8 +40,8 @@ const InputDialog = ({
             type="text"
             value={currentInputValue}
             onChange={(e) => setCurrentInputValue(e.target.value)}
-            onKeyPress={(e) => e.key === "Enter" && handleInputSubmit()}
-            className="w-full px-4 py-3 bg-gray-700 text-pink-300 border-2 border-pink-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 font-mono placeholder-pink-400 text-lg"
+            onKeyPress={autoSubmitInput ? (e) => e.key === "Enter" && handleInputSubmit() : undefined}
+            className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono placeholder-gray-500 text-lg ${darkMode ? 'bg-gray-700 text-white border-gray-600 placeholder-gray-400' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
             placeholder="Type your input here..."
             autoFocus
           />
@@ -50,24 +52,24 @@ const InputDialog = ({
                 setShowInputDialog(false);
                 setOutput("⚠️ Input cancelled by user.");
               }}
-              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition"
+              className={`px-4 py-2 rounded-lg transition ${darkMode ? 'bg-gray-600 text-gray-200 hover:bg-gray-500' : 'bg-gray-300 text-gray-700 hover:bg-gray-400'}`}
             >
               Cancel
             </button>
 
             <button
               onClick={handleInputSubmit}
-              className="px-6 py-2 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-lg hover:from-emerald-600 hover:to-green-600 transition font-medium"
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
             >
               {currentInputIndex < inputPrompt.length - 1 ? "Next →" : "Run Code"}
             </button>
           </div>
 
           {userInputs.length > 0 && (
-            <div className="mt-4 p-3 bg-gray-700 rounded-lg">
-              <p className="text-sm text-gray-400 mb-1">Previous inputs:</p>
+            <div className={`mt-4 p-3 border rounded-lg ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+              <p className={`text-sm mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Previous inputs:</p>
               {userInputs.map((input, idx) => (
-                <div key={idx} className="text-green-400 font-mono text-sm">
+                <div key={idx} className={`font-mono text-sm ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                   {idx + 1}. {input}
                 </div>
               ))}

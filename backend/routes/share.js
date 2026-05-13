@@ -1,10 +1,10 @@
 import express from "express";
+import { SharedCode } from "../models/SharedCode.js";
 
 const router = express.Router();
-const sharedCodes = {};
 
 // SHARE CODE
-router.post("/", (req, res) => {
+router.post("/", async (req, res) => {
   try {
     const { language, code } = req.body;
 
@@ -12,11 +12,24 @@ router.post("/", (req, res) => {
       return res.status(400).json({ error: "Language and code are required" });
     }
 
-    const id = Math.random().toString(36).substring(2, 8);
-    sharedCodes[id] = { language, code, createdAt: new Date() };
+    const shareId = Math.random().toString(36).substring(2, 8);
     
-    console.log(`📤 Code shared with ID: ${id}`);
-    res.json({ shareId: id, success: true });
+    // Save to MongoDB
+    const sharedCode = new SharedCode({
+      shareId,
+      language,
+      code,
+      createdAt: new Date()
+    });
+
+    await sharedCode.save();
+
+    // build absolute URL using request headers so host is correct even on mobile
+    const origin = req.protocol + "://" + req.get("host");
+    const shareUrl = `${origin}/share/${shareId}`;
+
+    console.log(`📤 Code shared with ID: ${shareId} (saved to MongoDB)`);
+    res.json({ shareId, shareUrl, success: true });
   } catch (err) {
     console.error("Share error:", err);
     res.status(500).json({ error: "Failed to share code: " + err.message });
@@ -24,15 +37,19 @@ router.post("/", (req, res) => {
 });
 
 // GET SHARED CODE
-router.get("/:id", (req, res) => {
+router.get("/:id", async (req, res) => {
   try {
-    const code = sharedCodes[req.params.id];
+    const sharedCode = await SharedCode.findOne({ shareId: req.params.id });
     
-    if (!code) {
-      return res.status(404).json({ error: "Shared code not found" });
+    if (!sharedCode) {
+      return res.status(404).json({ error: "Shared code not found or expired" });
     }
 
-    res.json(code);
+    res.json({
+      language: sharedCode.language,
+      code: sharedCode.code,
+      createdAt: sharedCode.createdAt
+    });
   } catch (err) {
     console.error("Get share error:", err);
     res.status(500).json({ error: "Failed to retrieve shared code" });
