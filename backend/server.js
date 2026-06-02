@@ -34,7 +34,12 @@ const app = express();
 // -------------------------
 app.use(
   cors({
-    origin: true, // reflect requesting origin (allows mobile/network access)
+    origin: [
+      'http://localhost:3000',
+      'http://127.0.0.1:3000',
+      'https://smart-code-editor-ivp3.vercel.app',
+      /\.vercel\.app$/  // Allow all vercel apps
+    ],
     credentials: true,
   })
 );
