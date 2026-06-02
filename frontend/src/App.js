@@ -24,7 +24,6 @@ const App = () => {
   // ===== STATE MANAGEMENT =====
   const navigate = useNavigate();
   const [language, setLanguage] = useState("javascript");
-  const backendUrl = process.env.REACT_APP_BACKEND_URL || `${window.location.protocol}//${window.location.hostname}:5000`;
   const [codes, setCodes] = useState(DEFAULT_CODES);
   const [output, setOutput] = useState("");
   const [syntaxErrors, setSyntaxErrors] = useState([]);
@@ -92,6 +91,15 @@ const App = () => {
   // User Data
   const user = JSON.parse(localStorage.getItem("devstudio_user") || "{}");
   const isGuest = localStorage.getItem("devstudio_demo") === "true";
+
+  // API Configuration
+  const API_BASE_URL = process.env.REACT_APP_BACKEND_URL || (process.env.NODE_ENV === 'production' 
+    ? `${window.location.protocol}//${window.location.hostname}/api`
+    : `${window.location.protocol}//${window.location.hostname}:5000`
+  );
+
+  // Frontend URL for sharing (use environment variable or current host)
+  const FRONTEND_URL = process.env.REACT_APP_FRONTEND_URL || window.location.origin;
 
   // ===== EFFECTS =====
   // Resize divider
@@ -442,7 +450,7 @@ const App = () => {
 
       setOutput("⏳ Sharing code...");
 
-      const res = await fetch(`${backendUrl}/share`, {
+      const res = await fetch(`${API_BASE_URL}/share`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
@@ -454,9 +462,8 @@ const App = () => {
       const data = await res.json();
       
       if (data.success && data.shareId) {
-        // Generate frontend URL instead of using backend URL
-        const frontendUrl = `${window.location.protocol}//${window.location.hostname}:${window.location.port || 3000}`;
-        const shareLink = `${frontendUrl}/share/${data.shareId}`;
+        // Generate share link using environment variable or current host
+        const shareLink = `${FRONTEND_URL}/share/${data.shareId}`;
         
         // Copy to clipboard
         try {
@@ -512,7 +519,7 @@ const App = () => {
         query = `[${language.toUpperCase()} Code]\n${currentCode}\n\n[Question]\n${aiQuery}`;
       }
       
-      const res = await fetch(`${backendUrl}/ai`, {
+      const res = await fetch(`${API_BASE_URL}/ai`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query }),

@@ -18,7 +18,10 @@ const HistoryModal = ({ isOpen, onClose, onSelectCode, isAuthenticated, darkMode
       const token = localStorage.getItem("devstudio_token");
       console.log("📖 Fetching history with token:", token ? "✅ Present" : "❌ Missing");
       
-      const backendUrl = `${window.location.protocol}//${window.location.hostname}:5000`;
+      const backendUrl = process.env.REACT_APP_BACKEND_URL || (process.env.NODE_ENV === 'production' 
+        ? `${window.location.protocol}//${window.location.hostname}/api`
+        : `${window.location.protocol}//${window.location.hostname}:5000`
+      );
       const res = await fetch(`${backendUrl}/code/history`, {
         headers: {
           "Authorization": `Bearer ${token}`

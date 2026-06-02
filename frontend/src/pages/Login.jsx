@@ -68,7 +68,10 @@ const LoginPage = ({ initialMode = 'login' }) => {
         ? { email: formData.email, password: formData.password }
         : { name: formData.username, email: formData.email, password: formData.password };
 
-      const backendUrl = `${window.location.protocol}//${window.location.hostname}:5000`;
+      const backendUrl = process.env.REACT_APP_BACKEND_URL || (process.env.NODE_ENV === 'production' 
+        ? `${window.location.protocol}//${window.location.hostname}/api`
+        : `${window.location.protocol}//${window.location.hostname}:5000`
+      );
       const response = await fetch(`${backendUrl}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

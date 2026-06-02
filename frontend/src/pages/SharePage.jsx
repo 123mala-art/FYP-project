@@ -8,7 +8,7 @@ const SharePage = () => {
   useEffect(() => {
     const fetchShare = async () => {
       try {
-        const backendUrl = `${window.location.protocol}//${window.location.hostname}:5000`;
+        const backendUrl = process.env.REACT_APP_BACKEND_URL || `${window.location.protocol}//${window.location.hostname}:5000`;
         const res = await fetch(`${backendUrl}/share/${id}`);
         const data = await res.json();
         if (data.error) {

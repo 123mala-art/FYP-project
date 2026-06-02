@@ -879,77 +879,7 @@ NODE_ENV=development
 ```
 REACT_APP_API_URL=http://localhost:5000
 ```
-
-### 8.4 Deploying to Railway (Step-by-Step)
-
-#### Step 1: Push Code to GitHub
-```powershell
-# Navigate to project folder
-cd "C:\Users\ahtas\OneDrive\Desktop\fyp project\smart-code-editor"
-
-# Initialize git (if not already done)
-git init
-
-# Add all files
-git add .
-
-# Commit changes
-git commit -m "Ready for Railway deployment: Production ready with all features"
-
-# Add remote (replace YOUR_REPO with your GitHub repo)
-git remote add origin https://github.com/YOUR_USERNAME/smart-code-editor.git
-
-# Push to main branch
-git push -u origin main
-```
-
-#### Step 2: Create Railway Account & Deploy
-1. Go to https://railway.app
-2. Click "Start Project"
-3. Connect your GitHub account
-4. Select your `smart-code-editor` repository
-5. Railway auto-detects Node.js project
-
-#### Step 3: Configure Backend Service
-1. Click on Backend service
-2. Set **Root Directory**: `backend`
-3. Add environment variables:
-   - `MONGO_URI` = Your MongoDB Atlas connection string
-   - `JWT_SECRET` = Generate random key: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
-   - `GROQ_API_KEY` = Your Groq API key from https://console.groq.com/keys
-   - `PORT` = 5000
-
-#### Step 4: Configure Frontend Service
-1. Click on Frontend service
-2. Set **Root Directory**: `frontend`
-3. Set **Start Command**: `npm start`
-4. Add environment variable:
-   - `REACT_APP_BACKEND_URL` = Copy your backend Railway URL (e.g., https://backend-xxxx.railway.app)
-
-#### Step 5: Test Deployment
-- Visit frontend URL in browser
-- Test code execution (write JS, click Run)
-- Test authentication (signup/login)
-- Test AI chat
-- Test sharing functionality
-
-#### Deployment Checklist
-**Before deploying:**
-- [ ] Code committed to GitHub
-- [ ] `.env` files NOT in repository
-- [ ] All tests pass locally
-- [ ] MongoDB Atlas account ready with connection string
-- [ ] Groq API key ready
-
-**After deploying:**
-- [ ] Frontend loads without errors
-- [ ] Backend health check passes
-- [ ] Code execution works
-- [ ] Authentication functional
-- [ ] AI responses working
-- [ ] Share links working
-
----
+### 
 
 ## 9. 📊 PROJECT METRICS
 
