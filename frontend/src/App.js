@@ -160,6 +160,14 @@ const App = () => {
   };
 
   const handleLogout = () => {
+    // attempt to clear server cookie too
+    try {
+      fetch(`${API_BASE_URL}/auth/logout`, { method: 'POST', credentials: 'include' })
+        .catch((e) => console.warn('Logout request failed:', e));
+    } catch (e) {
+      console.warn('Logout fetch error:', e);
+    }
+
     localStorage.removeItem("devstudio_token");
     localStorage.removeItem("devstudio_user");
     localStorage.removeItem("devstudio_demo");
@@ -279,7 +287,7 @@ const App = () => {
     }
 
     try {
-      const res = await fetch(`${backendUrl}/run`, {
+      const res = await fetch(`${API_BASE_URL}/run`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -464,7 +472,6 @@ const App = () => {
       if (data.success && data.shareId) {
         // Generate share link using environment variable or current host
         const shareLink = `${FRONTEND_URL}/share/${data.shareId}`;
-        
         // Copy to clipboard
         try {
           await navigator.clipboard.writeText(shareLink);
