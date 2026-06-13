@@ -10,6 +10,7 @@ import AIPanel from "./components/AIPanel";
 import HistoryModal from "./components/HistoryModal";
 import ChatButton from "./components/ChatButton";
 import SettingsModal from "./components/SettingsModal";
+import { getApiBaseUrl, getFrontendBaseUrl } from "./config/api";
 
 // Constants
 const DEFAULT_CODES = {
@@ -93,13 +94,10 @@ const App = () => {
   const isGuest = localStorage.getItem("devstudio_demo") === "true";
 
   // API Configuration
-  const API_BASE_URL = process.env.REACT_APP_BACKEND_URL || (process.env.NODE_ENV === 'production' 
-    ? `${window.location.protocol}//${window.location.hostname}/api`
-    : `${window.location.protocol}//${window.location.hostname}:5000`
-  );
+  const API_BASE_URL = getApiBaseUrl();
 
   // Frontend URL for sharing (use environment variable or current host)
-  const FRONTEND_URL = process.env.REACT_APP_FRONTEND_URL || window.location.origin;
+  const FRONTEND_URL = getFrontendBaseUrl();
 
   // ===== EFFECTS =====
   // Resize divider
@@ -308,7 +306,7 @@ const App = () => {
     } catch (error) {
       console.error("Execution error:", error);
       setOutput(
-        `Connection Error: ${error.message}\n\nMake sure backend is running on port 5000.`
+        `Connection Error: ${error.message}\n\nBackend URL: ${API_BASE_URL}`
       );
     } finally {
       setIsRunning(false);

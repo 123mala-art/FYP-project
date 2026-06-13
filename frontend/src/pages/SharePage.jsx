@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { getApiBaseUrl } from "../config/api";
 
 const SharePage = () => {
   const { id } = useParams();
@@ -8,7 +9,7 @@ const SharePage = () => {
   useEffect(() => {
     const fetchShare = async () => {
       try {
-        const backendUrl = process.env.REACT_APP_BACKEND_URL || `${window.location.protocol}//${window.location.hostname}:5000`;
+        const backendUrl = getApiBaseUrl();
         const res = await fetch(`${backendUrl}/share/${id}`);
         const data = await res.json();
         if (data.error) {
@@ -20,7 +21,7 @@ const SharePage = () => {
         }
       } catch (err) {
         alert("Failed to load shared code: " + err.message + "\n\n" +
-              "Make sure the backend server is reachable from this device (same Wi‑Fi network, use LAN IP instead of localhost)."
+              "Make sure the deployed backend URL is configured and reachable."
         );
         navigate("/");
       }

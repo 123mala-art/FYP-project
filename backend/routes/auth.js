@@ -6,6 +6,15 @@ import { authMiddleware } from "../utils/auth.js";
 import { validateEmail, validatePassword, validateName, sanitizeString } from "../utils/validation.js";
 
 const router = express.Router();
+const isProduction = process.env.NODE_ENV === "production";
+
+function authCookieOptions() {
+  return {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? "none" : "lax",
+  };
+}
 
 // SIGNUP
 router.post("/signup", async (req, res) => {
@@ -138,9 +147,7 @@ router.post("/login", async (req, res) => {
 
     // Set secure cookie
     res.cookie("token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      ...authCookieOptions(),
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 
@@ -164,7 +171,7 @@ router.post("/login", async (req, res) => {
 // LOGOUT
 router.post("/logout", (req, res) => {
   try {
-    res.clearCookie("token");
+    res.clearCookie("token", authCookieOptions());
     res.json({
       success: true,
       message: "Logged out successfully"

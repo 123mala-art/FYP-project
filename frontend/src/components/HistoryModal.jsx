@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { X, Trash2, Copy } from "lucide-react";
+import { X, Copy } from "lucide-react";
+import { getApiBaseUrl } from "../config/api";
 
 const HistoryModal = ({ isOpen, onClose, onSelectCode, isAuthenticated, darkMode = false }) => {
   const [history, setHistory] = useState([]);
@@ -18,10 +19,7 @@ const HistoryModal = ({ isOpen, onClose, onSelectCode, isAuthenticated, darkMode
       const token = localStorage.getItem("devstudio_token");
       console.log("📖 Fetching history with token:", token ? "✅ Present" : "❌ Missing");
       
-      const backendUrl = process.env.REACT_APP_BACKEND_URL || (process.env.NODE_ENV === 'production' 
-        ? `${window.location.protocol}//${window.location.hostname}/api`
-        : `${window.location.protocol}//${window.location.hostname}:5000`
-      );
+      const backendUrl = getApiBaseUrl();
       const res = await fetch(`${backendUrl}/code/history`, {
         headers: {
           "Authorization": `Bearer ${token}`

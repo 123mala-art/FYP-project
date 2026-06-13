@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+.vercel/
 /.pnp
 .pnp.js
 
@@ -14,6 +15,10 @@
 # misc
 .DS_Store
 .env.local
+.env
+.env.*
+!.env.example
+!.env.*.example
 .env.development.local
 .env.test.local
 .env.production.local

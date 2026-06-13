@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Code2, Sparkles, LogIn, UserPlus, ArrowLeft } from 'lucide-react';
+import { getApiBaseUrl } from '../config/api';
 
 const LoginPage = ({ initialMode = 'login' }) => {
   const navigate = useNavigate();
@@ -68,10 +69,7 @@ const LoginPage = ({ initialMode = 'login' }) => {
         ? { email: formData.email, password: formData.password }
         : { name: formData.username, email: formData.email, password: formData.password };
 
-      const backendUrl = process.env.REACT_APP_BACKEND_URL || (process.env.NODE_ENV === 'production' 
-        ? `${window.location.protocol}//${window.location.hostname}/api`
-        : `${window.location.protocol}//${window.location.hostname}:5000`
-      );
+      const backendUrl = getApiBaseUrl();
       const response = await fetch(`${backendUrl}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -119,7 +117,7 @@ const LoginPage = ({ initialMode = 'login' }) => {
       }
     } catch (error) {
       console.error('Auth error:', error);
-      setErrors({ submit: 'Unable to connect to server. Please ensure the backend is running.' });
+      setErrors({ submit: `Unable to connect to server at ${getApiBaseUrl()}.` });
     } finally {
       setLoading(false);
     }

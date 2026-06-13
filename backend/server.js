@@ -7,13 +7,13 @@ import cookieParser from "cookie-parser";
 import os from "os";
 import path from "path";
 import { fileURLToPath } from "url";
+import { User } from "./models/User.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const envPath = path.resolve(__dirname, ".env");
 dotenv.config({ path: envPath });
-console.log("DEBUG: Loaded backend .env from", envPath);
 
 // Import modular routes
 import authRoutes from "./routes/auth.js";
@@ -22,24 +22,39 @@ import aiRoutes from "./routes/ai.js";
 import executeRoutes from "./routes/execute.js";
 import shareRoutes from "./routes/share.js";
 
-dotenv.config();
-
-// Quick startup debug to ensure Node prints at process start
-console.log("DEBUG: server.js starting");
-
 const app = express();
+const isVercel = process.env.VERCEL === "1";
+const isProduction = process.env.NODE_ENV === "production";
 
 // -------------------------
 // MIDDLEWARE
 // -------------------------
+const configuredOrigins = [
+  process.env.FRONTEND_URL,
+  ...(process.env.CORS_ORIGINS || "").split(","),
+]
+  .map((origin) => origin && origin.trim())
+  .filter(Boolean);
+
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+  ...configuredOrigins,
+];
+
 app.use(
   cors({
-    origin: [
-      'http://localhost:3000',
-      'http://127.0.0.1:3000',
-      'https://smart-code-editor-ivp3.vercel.app',
-      /\.vercel\.app$/  // Allow all vercel apps
-    ],
+    origin(origin, callback) {
+      if (
+        !origin ||
+        allowedOrigins.includes(origin) ||
+        /^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(origin)
+      ) {
+        return callback(null, true);
+      }
+
+      return callback(new Error(`CORS blocked origin: ${origin}`));
+    },
     credentials: true,
   })
 );
@@ -50,9 +65,28 @@ app.use(bodyParser.json());
 // -------------------------
 // MONGO DB CONNECTION
 // -------------------------
-const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/devstudio";
+const MONGO_URI =
+  process.env.MONGO_URI ||
+  process.env.MONGODB_URI ||
+  (isProduction ? "" : "mongodb://127.0.0.1:27017/devstudio");
+
+function describeMongoUri(uri) {
+  if (!uri) return "not configured";
+
+  try {
+    const parsed = new URL(uri);
+    return `${parsed.protocol}//${parsed.hostname}${parsed.pathname}`;
+  } catch {
+    return "configured";
+  }
+}
 
 async function connectWithRetry(retries = 5, delayMs = 2000) {
+  if (!MONGO_URI) {
+    console.error("MONGO_URI is required in production.");
+    return;
+  }
+
   for (let i = 0; i < retries; i++) {
     try {
       await mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true });
@@ -73,12 +107,17 @@ connectWithRetry();
 // -------------------------
 // REGISTER MODULAR ROUTES
 // -------------------------
-app.use("/auth", authRoutes);
-app.use("/code", codeRoutes);
-app.use("/ai", aiRoutes);
-app.use("/execute", executeRoutes);
-app.use("/run", executeRoutes);  // Also available as /run for backward compatibility
-app.use("/share", shareRoutes);
+const apiRouter = express.Router();
+
+apiRouter.use("/auth", authRoutes);
+apiRouter.use("/code", codeRoutes);
+apiRouter.use("/ai", aiRoutes);
+apiRouter.use("/execute", executeRoutes);
+apiRouter.use("/run", executeRoutes);  // Also available as /run for backward compatibility
+apiRouter.use("/share", shareRoutes);
+
+app.use(apiRouter);
+app.use("/api", apiRouter);
 
 // -------------------------
 // STATUS ROUTES
@@ -135,16 +174,19 @@ function getLanIp() {
 }
 
 const HOST = process.env.HOST || '0.0.0.0';
-app.listen(PORT, HOST, () => {
-  console.log("============================================================");
-  console.log("🚀 DevStudio Backend Server (MODULAR ARCHITECTURE)");
-  console.log("============================================================");
-  console.log(`📍 Server listening on: http://${HOST}:${PORT}`);
-  const lan = getLanIp();
-  if (lan) console.log(`📡 LAN IP: http://${lan}:${PORT}`);
-  console.log(`🗄️  MongoDB: ${MONGO_URI}`);
-  console.log("============================================================");
-});
+
+if (!isVercel) {
+  app.listen(PORT, HOST, () => {
+    console.log("============================================================");
+    console.log("🚀 DevStudio Backend Server (MODULAR ARCHITECTURE)");
+    console.log("============================================================");
+    console.log(`📍 Server listening on: http://${HOST}:${PORT}`);
+    const lan = getLanIp();
+    if (lan) console.log(`📡 LAN IP: http://${lan}:${PORT}`);
+    console.log(`🗄️  MongoDB: ${describeMongoUri(MONGO_URI)}`);
+    console.log("============================================================");
+  });
+}
 
 // Error handlers
 process.on("uncaughtException", (err) => {
@@ -154,3 +196,5 @@ process.on("uncaughtException", (err) => {
 process.on("unhandledRejection", (reason, p) => {
   console.error("❌ Unhandled Rejection:", reason);
 });
+
+export default app;
