@@ -1,10 +1,11 @@
 import express from "express";
 import { SharedCode } from "../models/SharedCode.js";
+import { requireDatabase } from "../utils/database.js";
 
 const router = express.Router();
 
 // SHARE CODE
-router.post("/", async (req, res) => {
+router.post("/", requireDatabase(), async (req, res) => {
   try {
     const { language, code } = req.body;
 
@@ -37,7 +38,7 @@ router.post("/", async (req, res) => {
 });
 
 // GET SHARED CODE
-router.get("/:id", async (req, res) => {
+router.get("/:id", requireDatabase(), async (req, res) => {
   try {
     const sharedCode = await SharedCode.findOne({ shareId: req.params.id });
     

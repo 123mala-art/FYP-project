@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { User } from "../models/User.js";
 import { authMiddleware } from "../utils/auth.js";
+import { requireDatabase } from "../utils/database.js";
 import { validateEmail, validatePassword, validateName, sanitizeString } from "../utils/validation.js";
 
 const router = express.Router();
@@ -17,7 +18,7 @@ function authCookieOptions() {
 }
 
 // SIGNUP
-router.post("/signup", async (req, res) => {
+router.post("/signup", requireDatabase(), async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
@@ -97,7 +98,7 @@ router.post("/signup", async (req, res) => {
 });
 
 // LOGIN
-router.post("/login", async (req, res) => {
+router.post("/login", requireDatabase(), async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -186,7 +187,7 @@ router.post("/logout", (req, res) => {
 });
 
 // GET CURRENT USER
-router.get("/me", authMiddleware, async (req, res) => {
+router.get("/me", authMiddleware, requireDatabase(), async (req, res) => {
   try {
     const user = await User.findById(req.userId)
       .select("name email createdAt")

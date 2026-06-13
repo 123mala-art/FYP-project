@@ -1,12 +1,13 @@
 import express from "express";
 import { User } from "../models/User.js";
 import { authMiddleware } from "../utils/auth.js";
+import { requireDatabase } from "../utils/database.js";
 import { validateLanguage, validateCode } from "../utils/validation.js";
 
 const router = express.Router();
 
 // SAVE CODE
-router.post("/save", authMiddleware, async (req, res) => {
+router.post("/save", authMiddleware, requireDatabase(), async (req, res) => {
   try {
     const { language, code } = req.body;
 
@@ -72,7 +73,7 @@ router.post("/save", authMiddleware, async (req, res) => {
 });
 
 // GET CODE HISTORY
-router.get("/history", authMiddleware, async (req, res) => {
+router.get("/history", authMiddleware, requireDatabase(), async (req, res) => {
   try {
     const user = await User.findById(req.userId)
       .select("history")

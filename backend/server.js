@@ -142,6 +142,14 @@ app.get("/netinfo", (req, res) => {
 
 app.get("/db/status", async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({
+        status: "Disconnected",
+        mongoState: mongoose.connection.readyState,
+        message: "Database unavailable. Check the backend MONGO_URI value in Vercel."
+      });
+    }
+
     const userCount = await User.countDocuments();
     res.json({
       status: "Connected",
