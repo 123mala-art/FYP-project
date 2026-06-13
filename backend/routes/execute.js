@@ -2,72 +2,22 @@ import express from "express";
 import { execSync } from "child_process";
 import { executePistonWithRetry } from "../utils/piston.js";
 import { validateLanguage, validateCode, sanitizeString } from "../utils/validation.js";
+import { executeViaWandbox } from "../utils/wandbox.js";
 import fs from "fs";
 import path from "path";
 import os from "os";
 import { fileURLToPath } from "url";
-import fetch from "node-fetch";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const WANDBOX_URL = process.env.WANDBOX_URL || "https://wandbox.org/api/compile.json";
-// By default, do not delay user response waiting for Wandbox retries.
-// If you want retries, set WANDBOX_MAX_RETRIES > 0 in the environment.
-const WANDBOX_MAX_RETRIES = Number(process.env.WANDBOX_MAX_RETRIES || 0);
-const WANDBOX_RETRY_DELAY_MS = Number(process.env.WANDBOX_RETRY_DELAY_MS || 5000);
-
-async function executeViaWandbox(code, input) {
-  // If code was sent with literal "\\n" sequences (common when JSON is double-escaped),
-  // convert them back into real newlines so Wandbox compiles correctly.
-  let codeForWandbox = code;
-  if (!code.includes("\n") && code.includes("\\n")) {
-    codeForWandbox = codeForWandbox.replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n");
-  }
-
-  let attempt = 0;
-  let lastErr;
-
-  while (attempt <= WANDBOX_MAX_RETRIES) {
-    try {
-      const response = await fetch(WANDBOX_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          compiler: "gcc-head",
-          code: codeForWandbox,
-          options: "-Wall -Wextra -O2",
-          stdin: input || "",
-          save: false,
-        }),
-      });
-
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-      const data = await response.json();
-
-      if (data.program_output) return data.program_output;
-      if (data.compiler_error) throw new Error(data.compiler_error);
-      if (data.stderr) throw new Error(data.stderr);
-
-      return "✅ Executed successfully (no output)";
-    } catch (err) {
-      lastErr = err;
-      attempt += 1;
-      console.warn(`⚠️ Wandbox attempt ${attempt} failed: ${err.message}`);
-
-      if (attempt <= WANDBOX_MAX_RETRIES) {
-        console.log(`ℹ️ Retrying Wandbox in ${WANDBOX_RETRY_DELAY_MS / 1000}s (attempt ${attempt + 1}/${WANDBOX_MAX_RETRIES + 1})...`);
-        await new Promise((r) => setTimeout(r, WANDBOX_RETRY_DELAY_MS));
-      }
-    }
-  }
-
-  console.error("❌ Wandbox error (all retries failed):", lastErr?.message);
-  throw lastErr;
-}
-
 const router = express.Router();
+const isVercel = process.env.VERCEL === "1";
+const forceOnlineExecution = process.env.CODE_EXECUTION_MODE === "online";
+const shouldUseOnlineExecution = isVercel || forceOnlineExecution;
+const WANDBOX_CPP_COMPILER = process.env.WANDBOX_CPP_COMPILER || "gcc-head";
+const WANDBOX_PYTHON_COMPILER = process.env.WANDBOX_PYTHON_COMPILER || "cpython-3.10.15";
+const WANDBOX_JS_COMPILER = process.env.WANDBOX_JS_COMPILER || "nodejs-20.17.0";
 
 
 // RUN CODE
@@ -101,23 +51,24 @@ router.post("/", async (req, res) => {
 
     console.log(`🏃 Running ${language} code (${code.length} bytes)`);
 
-    // JavaScript runs in browser (should not reach here usually)
+    // Run JavaScript in a hosted sandbox. Do not execute untrusted JS in the
+    // backend process; it can read env vars or hang the serverless function.
     if (language === "javascript") {
       try {
-        let logs = [];
-        const oldLog = console.log;
-        console.log = (...args) => logs.push(args.join(" "));
-        
-        // Execute in try-catch to prevent infinite loops
-        new Function(code)();
-        
-        console.log = oldLog;
+        const output = await executeViaWandbox({
+          compiler: WANDBOX_JS_COMPILER,
+          code,
+          input: sanitizedInput,
+        });
+
         return res.json({
-          output: logs.join("\n") || "✅ Executed successfully!"
+          output,
+          compiler: `Wandbox (${WANDBOX_JS_COMPILER})`,
         });
       } catch (err) {
-        return res.json({
-          output: `❌ JavaScript Error:\n${err.message}`
+        console.error("❌ Wandbox JavaScript failed:", err.message);
+        return res.status(502).json({
+          output: `❌ JavaScript execution service failed: ${err.message}\n\nUse a dedicated code execution service if this needs stronger reliability.`
         });
       }
     }
@@ -129,14 +80,35 @@ router.post("/", async (req, res) => {
       });
     }
 
-    // Python and C++ use Piston (with local Python fallback)
+    // Python and C++ use hosted execution in Vercel. Serverless runtimes do not
+    // provide system compilers/interpreters like python, g++, etc.
     const versions = {
-      python: "3.10.0",
       cpp: "10.2.0",
     };
 
-    // Local Python execution
+    // Python execution
     if (language === "python") {
+      if (shouldUseOnlineExecution) {
+        try {
+          const output = await executeViaWandbox({
+            compiler: WANDBOX_PYTHON_COMPILER,
+            code,
+            input: sanitizedInput,
+          });
+
+          console.log(`📤 Wandbox Python Output: ${(output || "").length} characters`);
+          return res.json({
+            output,
+            compiler: `Wandbox (${WANDBOX_PYTHON_COMPILER})`,
+          });
+        } catch (wandboxErr) {
+          console.error("❌ Wandbox Python failed:", wandboxErr.message);
+          return res.status(502).json({
+            output: `❌ Python execution service failed: ${wandboxErr.message}\n\nVercel cannot run local Python. Configure WANDBOX_PYTHON_COMPILER or use a dedicated code execution service.`
+          });
+        }
+      }
+
       try {
         const tempDir = os.tmpdir();
         const tempFile = path.join(tempDir, `devstudio_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.py`);
@@ -192,7 +164,12 @@ router.post("/", async (req, res) => {
         console.warn("⚠️ Piston failed, falling back to Wandbox:", pistonErr.message);
 
         try {
-          const output = await executeViaWandbox(code, sanitizedInput);
+          const output = await executeViaWandbox({
+            compiler: WANDBOX_CPP_COMPILER,
+            code,
+            input: sanitizedInput,
+            options: "-Wall -Wextra -O2",
+          });
           console.log(`📤 Wandbox C++ Output: ${(output || "").length} characters`);
           return res.json({
             output: output || "✅ Executed successfully (no output)",
