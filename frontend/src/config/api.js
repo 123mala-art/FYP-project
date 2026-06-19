@@ -2,8 +2,12 @@ function trimTrailingSlash(value) {
   return value.replace(/\/+$/, "");
 }
 
+// export function getApiBaseUrl() {
+//   const configuredUrl = process.env.REACT_APP_BACKEND_URL;
+
 export function getApiBaseUrl() {
-  const configuredUrl = process.env.REACT_APP_BACKEND_URL;
+  return "https://fyp-project-hkch.onrender.com";
+}
 
   if (configuredUrl && configuredUrl.trim()) {
     return trimTrailingSlash(configuredUrl.trim());
